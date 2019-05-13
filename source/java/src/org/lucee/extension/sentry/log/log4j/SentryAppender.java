@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.log4j.Appender;
 import org.apache.log4j.Layout;
@@ -12,10 +15,15 @@ import org.apache.log4j.Priority;
 import org.apache.log4j.spi.ErrorHandler;
 import org.apache.log4j.spi.Filter;
 import org.apache.log4j.spi.LoggingEvent;
+import org.apache.log4j.spi.ThrowableInformation;
 
 import io.sentry.Sentry;
 import io.sentry.event.Event;
 import io.sentry.event.EventBuilder;
+import io.sentry.event.interfaces.ExceptionInterface;
+import io.sentry.event.interfaces.HttpInterface;
+import io.sentry.event.interfaces.SentryStackTraceElement;
+import io.sentry.event.interfaces.StackTraceInterface;
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -23,10 +31,16 @@ import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.PageSource;
 import lucee.runtime.config.Config;
+import lucee.runtime.exp.CatchBlock;
 import lucee.runtime.exp.PageException;
+import lucee.runtime.ext.function.BIF;
+import lucee.runtime.type.Array;
+import lucee.runtime.type.Struct;
+import lucee.runtime.util.Cast;
 
 public class SentryAppender implements Appender {
 
+	private static BIF contractPath;
 	private Appender local = null;
 	private io.sentry.log4j.SentryAppender sentry = null;
 	private Resource path;
@@ -70,33 +84,58 @@ public class SentryAppender implements Appender {
 	}
 
 	public Event toEvent(LoggingEvent le) {
+		try {
+			return _toEvent(le);
+		} catch (Throwable t) {
+			t.printStackTrace();
+			throw new RuntimeException(t);
+		}
+	}
+
+	public Event _toEvent(LoggingEvent le) {
 		EventBuilder eb = new EventBuilder();
-		eb.withMessage(le.getMessage().toString()).withLevel(toLevel(le.getLevel())).withLogger(le.getLoggerName());
-
 		PageContext pc = CFMLEngineFactory.getInstance().getThreadPageContext();
-		StackTraceElement[] traces = new Throwable().getStackTrace();
-		boolean hasTransaction = false;
+
+		Map<String, Map<String, Object>> context = new HashMap<>();
+		Map<String, Object> contxt = new HashMap<>();
+		context.put("Context", contxt);
+
+		String msg = le.getMessage().toString();
+
+		// Exception
+		Throwable callerException = new Throwable();
+		Throwable t = null;
+		try {
+			ThrowableInformation ti = le.getThrowableInformation();
+			t = ti == null ? null : ti.getThrowable();
+
+			if (t == null) {
+				t = callerException;
+			} else {
+				msg += " - " + t.getMessage();
+			}
+
+			if (t != null) {
+				setException(pc, eb, t, contxt);
+			}
+		} catch (Exception e) {
+		}
+
+		eb.withMessage(msg).withLevel(toLevel(le.getLevel())).withLogger(le.getLoggerName());
+
+		// HTTP
 		if (pc != null) {
-			StackTraceElement ste = getContext(pc, traces);
-			if (ste != null) {
-				String str = toString(ste);
-				eb.withFingerprint(le.getLoggerName() + ":" + str);
-				eb.withTransaction(str);
-				hasTransaction = true;
-			}
+			eb.withSentryInterface(new HttpInterface(pc.getHttpServletRequest()));
+		}
 
-			// current template path
-			PageSource curr = pc.getCurrentTemplatePageSource();
-			if (curr != null) {
-				try {
-					String _path = curr.getResourceTranslated(pc).getAbsolutePath();
-					if (_path != null) {
-						eb.withExtra("CurrentTemplatePath", _path);
+		// Caller
+		String caller = getCaller(pc, callerException);
+		contxt.put("Caller", caller);
+		// eb.withExtra("Caller", caller);
+		eb.withFingerprint(le.getLoggerName() + ":" + caller);
+		eb.withTransaction(caller);
 
-					}
-				} catch (PageException e) {
-				}
-			}
+		if (pc != null) {
 
 			// base template path
 			PageSource base = pc.getBasePageSource();
@@ -104,7 +143,7 @@ public class SentryAppender implements Appender {
 				try {
 					String _path = base.getResourceTranslated(pc).getAbsolutePath();
 					if (_path != null) {
-						eb.withExtra("BaseTemplatePath", _path);
+						contxt.put("Base Template Path", _path);
 
 					}
 				} catch (PageException e) {
@@ -113,17 +152,102 @@ public class SentryAppender implements Appender {
 
 		}
 
-		String firstSTE = toString(traces);
-		if (!hasTransaction) {
-			eb.withFingerprint(le.getLoggerName() + ":" + firstSTE);
-			eb.withTransaction(firstSTE);
-		}
-		eb.withExtra("Caller", firstSTE);
-		eb.withExtra("LogName", le.getLoggerName().substring(le.getLoggerName().lastIndexOf('.') + 1));
-		eb.withExtra("LogType", le.getLoggerName().substring(0, le.getLoggerName().indexOf('.')));
-		eb.withExtra("LogLevel", (le.getLevel().toString()));
+		// Log
+		Map<String, Object> log = new HashMap<>();
+		context.put("Log", log);
+		log.put("Name", le.getLoggerName().substring(le.getLoggerName().lastIndexOf('.') + 1));
+		log.put("Type", le.getLoggerName().substring(0, le.getLoggerName().indexOf('.')));
+		log.put("Level", (le.getLevel().toString()));
+
+		eb.withContexts(context);
 
 		return eb.build();
+	}
+
+	private void setException(PageContext pc, EventBuilder eb, Throwable t, Map<String, Object> contxt) {
+		CFMLEngine engine = CFMLEngineFactory.getInstance();
+		Config config = engine.getThreadConfig();
+		Cast caster = engine.getCastUtil();
+
+		PageException pe = caster.toPageException(t);
+		CatchBlock cb = pe.getCatchBlock(config);
+		Array arr = caster.toArray(cb.get("TagContext", null), null);
+
+		// tag context
+		if (arr.size() > 0) {
+			Iterator<?> it = arr.getIterator();
+			SentryStackTraceElement[] elements = new SentryStackTraceElement[arr.size()];
+			Struct sct;
+			String template, filename;
+			int line;
+			int index = -1;
+			while (it.hasNext()) {
+				index++;
+				sct = caster.toStruct(it.next(), null);
+				if (sct == null)
+					continue;
+				template = caster.toString(sct.get("template", ""), "");
+
+				filename = null;
+				if (pc != null) {
+					try {
+						filename = contractPath(pc, template);
+					} catch (PageException e) {
+					}
+				}
+				if (filename == null)
+					filename = engine.getListUtil().last(template, "\\/", true);
+
+				line = caster.toIntValue(sct.get("line", 0), 0);
+				elements[index] = (new SentryStackTraceElement("", "", filename, line, 0, template, null));
+			}
+			eb.withSentryInterface(new StackTraceInterface(elements));
+
+		}
+		// full stacktrace
+		else {
+			eb.withSentryInterface(new ExceptionInterface(t));
+		}
+		contxt.put("Java Stacktrace", pe.getStackTraceAsString());
+
+	}
+
+	private String getCaller(PageContext pc, Throwable t) {
+		CFMLEngine engine = CFMLEngineFactory.getInstance();
+		Config config = engine.getThreadConfig();
+		Cast caster = engine.getCastUtil();
+
+		PageException pe = caster.toPageException(t);
+		CatchBlock cb = pe.getCatchBlock(config);
+		Array arr = caster.toArray(cb.get("TagContext", null), null);
+
+		// tag context
+		if (arr.size() > 0) {
+			Iterator<?> it = arr.getIterator();
+			Struct sct;
+			String template, filename;
+			int line;
+			while (it.hasNext()) {
+				sct = caster.toStruct(it.next(), null);
+				if (sct == null)
+					continue;
+				template = caster.toString(sct.get("template", ""), "");
+				filename = null;
+				if (pc != null) {
+					try {
+						filename = contractPath(pc, template);
+					} catch (PageException e) {
+					}
+				}
+				if (filename == null)
+					filename = engine.getListUtil().last(template, "\\/", true);
+
+				line = caster.toIntValue(sct.get("line", 0), 0);
+				return filename + ":" + line;
+			}
+		}
+		// full stacktrace
+		return toString(t.getStackTrace());
 	}
 
 	private static StackTraceElement getContext(PageContext pc, StackTraceElement[] traces) {
@@ -168,6 +292,8 @@ public class SentryAppender implements Appender {
 				continue;
 			}
 
+			if (ste.getClassName().startsWith("org.apache.log4j."))
+				continue;
 			if (ste.getClassName().startsWith("lucee.commons.io.log."))
 				continue;
 			if (ste.getClassName().startsWith("org.lucee.extension.sentry.log.log4j."))
@@ -393,6 +519,7 @@ public class SentryAppender implements Appender {
 		if (le.getLevel().isGreaterOrEqual(threshold)) {
 			// sentry().doAppend(toProperLI(le));
 			Sentry.capture(toEvent(le));
+
 		} else
 			local().doAppend(le);
 	}
@@ -485,5 +612,16 @@ public class SentryAppender implements Appender {
 			return Priority.WARN;
 
 		return null;
+	}
+
+	public static String contractPath(PageContext pc, String abs) throws PageException {
+		try {
+			if (contractPath == null || contractPath.getClass() == CFMLEngineFactory.getInstance().getClass())
+				contractPath = CFMLEngineFactory.getInstance().getClassUtil().loadBIF(pc,
+						"lucee.runtime.functions.system.ContractPath");
+			return (String) contractPath.invoke(pc, new Object[] { abs });
+		} catch (Exception e) {
+			throw CFMLEngineFactory.getInstance().getCastUtil().toPageException(e);
+		}
 	}
 }
