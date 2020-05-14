@@ -1,11 +1,15 @@
 package org.lucee.extension.sentry.log.log4j;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Appender;
@@ -18,10 +22,10 @@ import org.apache.log4j.spi.LoggingEvent;
 import org.apache.log4j.spi.ThrowableInformation;
 
 import io.sentry.Sentry;
+import io.sentry.SentryClient;
 import io.sentry.event.Event;
 import io.sentry.event.EventBuilder;
 import io.sentry.event.interfaces.ExceptionInterface;
-import io.sentry.event.interfaces.HttpInterface;
 import io.sentry.event.interfaces.SentryStackTraceElement;
 import io.sentry.event.interfaces.StackTraceInterface;
 import lucee.commons.io.res.Resource;
@@ -42,7 +46,7 @@ public class SentryAppender implements Appender {
 
 	private static BIF contractPath;
 	private Appender local = null;
-	private io.sentry.log4j.SentryAppender sentry = null;
+	// private io.sentry.log4j.SentryAppender sentry = null;
 	private Resource path;
 	private String strPath;
 	private String strCharset;
@@ -56,37 +60,24 @@ public class SentryAppender implements Appender {
 	private Layout layout;
 	private String name;
 	private Priority threshold = Priority.ERROR;
+	private SentryClient client;
 
 	public SentryAppender() {
-
 	}
 
 	public SentryAppender(String dsn) {
-		Sentry.init(dsn);
+		client = Sentry.init(dsn);
+
 	}
 
 	public void setDsn(String dsn) {
-		Sentry.init(dsn);
-
-	}
-
-	private io.sentry.log4j.SentryAppender sentryX() {
-		if (sentry == null) {
-			sentry = new io.sentry.log4j.SentryAppender();
-			sentry.setThreshold(Priority.ERROR);
-			if (!Util.isEmpty(name))
-				sentry.setName(name);
-			if (layout != null)
-				sentry.setLayout(layout);
-
-		}
-		return sentry;
+		client = Sentry.init(dsn);
 	}
 
 	public Event toEvent(LoggingEvent le) {
 		try {
 			return _toEvent(le);
-		} catch (Throwable t) {
+		} catch (Exception t) {
 			t.printStackTrace();
 			throw new RuntimeException(t);
 		}
@@ -100,7 +91,7 @@ public class SentryAppender implements Appender {
 		Map<String, Object> contxt = new HashMap<>();
 		context.put("Context", contxt);
 
-		String msg = le.getMessage().toString();
+		String msg = (le.getMessage() + "").toString();
 
 		// Exception
 		Throwable callerException = new Throwable();
@@ -109,14 +100,23 @@ public class SentryAppender implements Appender {
 			ThrowableInformation ti = le.getThrowableInformation();
 			t = ti == null ? null : ti.getThrowable();
 
-			if (t == null) {
-				t = callerException;
-			} else {
-				msg += " - " + t.getMessage();
-			}
-
+			// log the exception
 			if (t != null) {
-				setException(pc, eb, t, contxt);
+				if (!msg.equalsIgnoreCase(t.getMessage()) && (t.getMessage() + "").length() > 0) {
+					msg += " - " + t.getMessage();
+				}
+				eb.withSentryInterface(new ExceptionInterface(t));
+			}
+			// in case we have no throwabble we check if the message contains a stacktrace
+			else {
+				Object[] res = extractStacktrace(msg);
+				if (res != null) {
+					msg = (String) res[0];
+					SentryStackTraceElement[] elements = (SentryStackTraceElement[]) res[1];
+					eb.withSentryInterface(new StackTraceInterface(elements));
+				} else {
+					eb.withSentryInterface(new ExceptionInterface(callerException));
+				}
 			}
 		} catch (Exception e) {
 		}
@@ -125,7 +125,8 @@ public class SentryAppender implements Appender {
 
 		// HTTP
 		if (pc != null) {
-			eb.withSentryInterface(new HttpInterface(pc.getHttpServletRequest()));
+			// eb.withSentryInterface(new HttpInterface(pc.getHttpServletRequest())); breaks
+			// it with no exception
 		}
 
 		// Caller
@@ -164,51 +165,59 @@ public class SentryAppender implements Appender {
 		return eb.build();
 	}
 
-	private void setException(PageContext pc, EventBuilder eb, Throwable t, Map<String, Object> contxt) {
-		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		Config config = engine.getThreadConfig();
-		Cast caster = engine.getCastUtil();
+	private static Object[] extractStacktrace(String message) {
+		int index = message.indexOf("	at ");
+		if (index == -1)
+			return null;
+		String msg = message.substring(0, index).trim();
+		String fullST = message.substring(index);
 
-		PageException pe = caster.toPageException(t);
-		CatchBlock cb = pe.getCatchBlock(config);
-		Array arr = caster.toArray(cb.get("TagContext", null), null);
+		String[] arr = fullST.split("\n");
+		List<SentryStackTraceElement> list = new ArrayList<>();
+		String path, filename, cn, fn;
+		int ln;
+		for (String line : arr) {
+			if (line.indexOf("	at ") == -1 || line.indexOf('(') == -1 || line.indexOf(')') == -1)
+				continue;
+			line = line.substring(4);
 
-		// tag context
-		if (arr.size() > 0) {
-			Iterator<?> it = arr.getIterator();
-			SentryStackTraceElement[] elements = new SentryStackTraceElement[arr.size()];
-			Struct sct;
-			String template, filename;
-			int line;
-			int index = -1;
-			while (it.hasNext()) {
-				index++;
-				sct = caster.toStruct(it.next(), null);
-				if (sct == null)
-					continue;
-				template = caster.toString(sct.get("template", ""), "");
+			// split filename and path
+			index = line.indexOf('(');
+			path = line.substring(0, index);
+			filename = line.substring(index + 1, line.lastIndexOf(')'));
 
-				filename = null;
-				if (pc != null) {
-					try {
-						filename = contractPath(pc, template);
-					} catch (PageException e) {
-					}
-				}
-				if (filename == null)
-					filename = engine.getListUtil().last(template, "\\/", true);
-
-				line = caster.toIntValue(sct.get("line", 0), 0);
-				elements[index] = (new SentryStackTraceElement("", "", filename, line, 0, template, null));
+			// split filename and linenumber
+			index = filename.indexOf(':');
+			if (index != -1) {
+				ln = Integer.parseInt(filename.substring(index + 1));
+				filename = filename.substring(0, index);
+			} else {
+				ln = 0;
 			}
-			eb.withSentryInterface(new StackTraceInterface(elements));
 
+			// split class from function
+			index = path.lastIndexOf('.');
+			if (index != -1) {
+				fn = path.substring(index + 1);
+				cn = path.substring(0, index);
+			} else {
+				cn = path;
+				fn = "";
+			}
+			list.add(new SentryStackTraceElement(cn, fn, filename, ln, 0, null, null));
 		}
-		// full stacktrace
-		else {
-			eb.withSentryInterface(new ExceptionInterface(t));
+		return new Object[] { msg, list.toArray(new SentryStackTraceElement[list.size()]) };
+	}
+
+	public static void main(String[] args) throws IOException {
+		File f = new File("/Users/mic/Tmp7/error.txt");
+		FileInputStream fis = new FileInputStream(f);
+		try {
+			String msg = Util.toString(fis);
+			extractStacktrace(msg);
+		} finally {
+			fis.close();
 		}
-		contxt.put("Java Stacktrace", pe.getStackTraceAsString());
 
 	}
 
@@ -515,11 +524,9 @@ public class SentryAppender implements Appender {
 	@Override
 	public void doAppend(LoggingEvent le) {
 
-		le.getLocationInformation().fullInfo = le.getLocationInformation().fullInfo + "qqq";
 		if (le.getLevel().isGreaterOrEqual(threshold)) {
-			// sentry().doAppend(toProperLI(le));
-			Sentry.capture(toEvent(le));
-
+			client.sendEvent(toEvent(le));
+			// Sentry.capture(toEvent(le));
 		} else
 			local().doAppend(le);
 	}
