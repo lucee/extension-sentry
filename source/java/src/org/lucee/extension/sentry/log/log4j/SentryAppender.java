@@ -62,12 +62,19 @@ public class SentryAppender implements Appender {
 	private Priority threshold = Priority.ERROR;
 	private SentryClient client;
 
+	private Config config;
+
 	public SentryAppender() {
+		this(null);
 	}
 
 	public SentryAppender(String dsn) {
-		client = Sentry.init(dsn);
-
+		if (!Util.isEmpty(dsn))
+			client = Sentry.init(dsn);
+		try {
+			config = CFMLEngineFactory.getInstance().getThreadConfig();
+		} catch (Exception e) {
+		}
 	}
 
 	public void setDsn(String dsn) {
@@ -223,11 +230,10 @@ public class SentryAppender implements Appender {
 
 	private String getCaller(PageContext pc, Throwable t) {
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		Config config = engine.getThreadConfig();
 		Cast caster = engine.getCastUtil();
 
 		PageException pe = caster.toPageException(t);
-		CatchBlock cb = pe.getCatchBlock(config);
+		CatchBlock cb = pe.getCatchBlock(getConfig(pc));
 		Array arr = caster.toArray(cb.get("TagContext", null), null);
 
 		// tag context
@@ -257,6 +263,18 @@ public class SentryAppender implements Appender {
 		}
 		// full stacktrace
 		return toString(t.getStackTrace());
+	}
+
+	private Config getConfig(PageContext pc) {
+		if (pc != null) {
+			if (this.config == null)
+				config = pc.getConfig();
+			return pc.getConfig();
+		}
+		if (this.config == null)
+			this.config = CFMLEngineFactory.getInstance().getThreadConfig();
+
+		return this.config;
 	}
 
 	private static StackTraceElement getContext(PageContext pc, StackTraceElement[] traces) {
@@ -379,7 +397,6 @@ public class SentryAppender implements Appender {
 
 		CFMLEngine engine = CFMLEngineFactory.getInstance();
 		// TODO config == null
-		Config config = engine.getThreadConfig();
 
 		// name
 		String name = this.name;
@@ -393,6 +410,7 @@ public class SentryAppender implements Appender {
 		else
 			strPath = strPath.trim();
 
+		Config config = getConfig(null);
 		path = getFile(engine, config, config.getConfigDir(), strPath);
 		if (path.isDirectory())
 			path = path.getRealResource(name + ".log");
@@ -482,6 +500,7 @@ public class SentryAppender implements Appender {
 						boolean.class, long.class, int.class, int.class, clazzRL });
 				Appender a = (Appender) c.newInstance(layout, getPath(), getCharset(), true, getMaxfileSize(),
 						getMaxfiles(), getTimeout(), null);
+
 				if (!Util.isEmpty(name, true))
 					a.setName(name.trim());
 				if (layout != null)
