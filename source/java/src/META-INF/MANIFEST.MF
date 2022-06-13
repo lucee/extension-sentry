@@ -1,6 +1,12 @@
 Manifest-Version: 1.0
 Export-Package: org.lucee.extension.sentry.log.log4j
 Bundle-ManifestVersion: 2
+Require-Bundle-Fragment: slf4j.nop;bundle-version=1.7.12
 Require-Bundle: org.lucee.sentry-log4j2;bundle-version=5.7.4,
  org.lucee.log4j-api;bundle-version=2.17.2,
- org.lucee.log4j-core;bundle-version=2.17.2
+ org.lucee.log4j-core;bundle-version=2.17.2,
+ sentry;bundle-version=1.7.22,
+ sentry-log4j;bundle-version=1.7.22,
+ slf4j.api;bundle-version=1.7.12,
+ log4j;bundle-version=1.2.17,
+ com.fasterxml.jackson.core.jackson-core;bundle-version=2.8.7
