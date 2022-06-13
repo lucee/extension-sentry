@@ -57,7 +57,7 @@ public class SentryAppender extends AbstractAppender {
 	private Hub hub;
 
 	public SentryAppender() {
-		this(null, null, null, null);
+		this((String) null, (Filter) null, (Layout) null, (String) null);
 	}
 
 	public SentryAppender(String dsn) {
@@ -66,15 +66,39 @@ public class SentryAppender extends AbstractAppender {
 
 	}
 
-	protected SentryAppender(String name, Filter filter, Layout<? extends Serializable> layout, String dsn) {
-		super(name, filter, layout);
+	public SentryAppender(String name, Layout<? extends Serializable> layout, Map<String, String> config) {
+		this(name, layout, extractDSN(config));
+	}
 
+	public SentryAppender(String name, Layout<? extends Serializable> layout, String dsn) {
+		super(name, null, layout, false);
+		this.dsn = dsn;
 		try {
 			config = CFMLEngineFactory.getInstance().getThreadConfig();
 		} catch (Exception e) {
 		}
-		// hub = HubAdapter.getInstance();
+	}
 
+	public SentryAppender(String name, Filter filter, Layout<? extends Serializable> layout,
+			Map<String, String> config) {
+		this(name, filter, layout, extractDSN(config));
+	}
+
+	public SentryAppender(String name, Filter filter, Layout<? extends Serializable> layout, String dsn) {
+		super(name, filter, layout, false);
+		this.dsn = dsn;
+		try {
+			config = CFMLEngineFactory.getInstance().getThreadConfig();
+		} catch (Exception e) {
+		}
+	}
+
+	private static String extractDSN(Map<String, String> config) {
+		for (Entry<String, String> e : config.entrySet()) {
+			if ("dsn".equalsIgnoreCase(e.getKey()))
+				return e.getValue();
+		}
+		return null;
 	}
 
 	private void init() {
@@ -101,7 +125,7 @@ public class SentryAppender extends AbstractAppender {
 
 	@Override
 	public void append(LogEvent event) {
-
+		System.err.println("-->" + event.getLoggerName());
 		init();
 		boolean done = false;
 		if (hub.isEnabled() && event.getLevel().isMoreSpecificThan(threshold)) {
@@ -310,6 +334,7 @@ public class SentryAppender extends AbstractAppender {
 	public void setName(String name) {
 		if (!Util.isEmpty(name, true))
 			this.name = name.trim();
+
 		// local().setName(name);
 		// sentry().setName(name);
 	}
