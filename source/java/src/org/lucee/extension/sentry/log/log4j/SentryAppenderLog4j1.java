@@ -2,7 +2,6 @@ package org.lucee.extension.sentry.log.log4j;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.nio.charset.Charset;
 import java.util.Iterator;
 
 import org.apache.log4j.Appender;
@@ -20,7 +19,6 @@ import io.sentry.SentryEvent;
 import io.sentry.SentryLevel;
 import io.sentry.SentryOptions;
 import io.sentry.protocol.Message;
-import lucee.commons.io.log.Log;
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -38,21 +36,9 @@ public class SentryAppenderLog4j1 implements Appender {
 
 	private static BIF contractPath;
 	private static final Object token = new Object();
-	private Log local = null;
-	// private io.sentry.log4j.SentryAppender sentry = null;
-	private Resource path;
-	private String strPath;
-	private String strCharset;
-	private Charset charset;
-	private String strMaxfiles;
-	private Integer maxfiles = null;
-	private String strMaxfileSize;
-	private Long maxfileSize;
-	private String strTimeout;
-	private Integer timeout;
+
 	private Layout layout;
 	private String name;
-	private Priority threshold = Priority.ERROR;
 
 	private Config config;
 	private String dsn;
@@ -235,90 +221,6 @@ public class SentryAppenderLog4j1 implements Appender {
 		return null;
 	}
 
-	public void setThreshold(Priority threshold) {
-		this.threshold = threshold;
-		// sentry().setThreshold(threshold);
-	}
-
-	public void setThreshold(String threshold) {
-		this.threshold = toPriority(threshold);
-		// sentry().setThreshold(toPriority(threshold));
-	}
-
-	public void setResourcepath(String path) {
-		this.strPath = path;
-	}
-
-	public void setResourcecharset(String charset) {
-		this.strCharset = charset;
-	}
-
-	public void setResourcemaxfiles(String maxfiles) {
-		this.strMaxfiles = maxfiles;
-	}
-
-	public void setResourcemaxfilesize(String maxFileSize) {
-		this.strMaxfileSize = maxFileSize;
-	}
-
-	public void setResourceTimeout(String timeout) {
-		this.strTimeout = timeout;
-	}
-
-	private Charset getCharset() {
-		if (charset != null)
-			return charset;
-
-		if (Util.isEmpty(strCharset))
-			strCharset = "UTF-8";
-		return charset = CFMLEngineFactory.getInstance().getCastUtil().toCharset(strCharset, null);
-	}
-
-	private int getMaxfiles() {
-		if (maxfiles != null)
-			return maxfiles.intValue();
-		return maxfiles = CFMLEngineFactory.getInstance().getCastUtil().toInteger(strMaxfiles, 10);
-	}
-
-	private long getMaxfileSize() {
-		if (maxfileSize != null)
-			return maxfileSize.longValue();
-		return maxfileSize = CFMLEngineFactory.getInstance().getCastUtil().toLong(strMaxfileSize,
-				(long) (1024 * 1024 * 10));
-	}
-
-	private int getTimeout() {
-		if (timeout != null)
-			return timeout.intValue();
-		return timeout = CFMLEngineFactory.getInstance().getCastUtil().toInteger(strTimeout, 60);
-	}
-
-	private Resource getPath() {
-		if (path != null)
-			return path;
-
-		CFMLEngine engine = CFMLEngineFactory.getInstance();
-		// TODO config == null
-
-		// name
-		String name = this.name;
-		if (Util.isEmpty(name)) {
-			name = hashCode() + "";
-		}
-
-		// default path
-		if (Util.isEmpty(strPath))
-			strPath = "logs/" + name + ".log";
-		else
-			strPath = strPath.trim();
-
-		Config config = getConfig(null);
-		path = getFile(engine, config, config.getConfigDir(), strPath);
-		if (path.isDirectory())
-			path = path.getRealResource(name + ".log");
-		return path;
-	}
-
 	private static Resource getFile(CFMLEngine engine, Config config, Resource directory, String path) {
 		if (Util.isEmpty(path, true))
 			return null;
@@ -379,13 +281,6 @@ public class SentryAppenderLog4j1 implements Appender {
 		return null;
 	}
 
-	private Log local() {
-		if (local == null) {
-			local = SentryUtil.getLog(config, logger);
-		}
-		return local;
-	}
-
 	@Override
 	public void addFilter(Filter filter) {
 
@@ -407,31 +302,10 @@ public class SentryAppenderLog4j1 implements Appender {
 	@Override
 	public void doAppend(LoggingEvent event) {
 		init();
-		boolean done = false;
-		if (hub.isEnabled() && event.getLevel().isGreaterOrEqual(threshold)) {
+		if (hub.isEnabled()) {
 			try {
 				hub.captureEvent(createEvent(event));
-				done = true;
 			} catch (Exception e) {
-			}
-		}
-		if (!done) {
-			System.err.println("llllll " + logger + " llllll");
-			Log l = local();
-			if (l != null) {
-
-				ThrowableInformation throwableInformation = event.getThrowableInformation();
-				String msg = event.getMessage().toString();
-
-				int level = SentryUtil.toLevel(event.getLevel(), Log.LEVEL_ERROR);
-				System.err.println(l.toString());
-				System.err.println("level:" + level);
-				if (throwableInformation != null) {
-					l.log(level, msg, throwableInformation.getThrowable());
-
-				} else {
-					l.log(level, msg, "");
-				}
 			}
 		}
 	}

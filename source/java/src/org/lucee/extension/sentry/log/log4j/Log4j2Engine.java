@@ -62,16 +62,10 @@ public class Log4j2Engine {
 		CFMLEngine cfmleng = CFMLEngineFactory.getInstance();
 		if (config == null)
 			config = cfmleng.getThreadConfig();
-		System.err.println("step 1");
 		if (eng == null || eng.getClass().getClassLoader() != cfmleng.getClass().getClassLoader()) {
-			System.err.println("step 2");
 			try {
 				Method m = config.getClass().getMethod("getLogEngine", ARGS_EMPTY);
-				System.err.println("step 3");
-				System.err.println(m);
 				eng = m.invoke(config, new Object[] {});
-				System.err.println("step 4");
-				System.err.println(eng);
 			} catch (Exception e) {
 				throw cfmleng.getCastUtil().toPageException(e);
 			}

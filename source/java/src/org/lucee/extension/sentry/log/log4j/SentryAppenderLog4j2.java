@@ -17,16 +17,9 @@ public class SentryAppenderLog4j2 implements Appender {
 	private Layout layout;
 	private Filter filter;
 	private String name;
-	private String logger = "application";
-	private String strTimeout;
 	private String dsn;
-	private Level threshold = Level.ERROR;
 	private SentryAppenderLog4j2Impl instance;
 	private boolean debug = true;
-	private String strPath;
-	private String strCharset;
-	private String strMaxfiles;
-	private String strMaxfileSize;
 	private static final Object token = new Object();
 
 	public SentryAppenderLog4j2() {
@@ -37,8 +30,7 @@ public class SentryAppenderLog4j2 implements Appender {
 		if (instance == null) {
 			synchronized (token) {
 				if (instance == null) {
-					instance = new SentryAppenderLog4j2Impl(name, filter, layout, dsn, threshold, logger, debug,
-							strPath, strCharset, strMaxfiles, strMaxfileSize, strTimeout);
+					instance = new SentryAppenderLog4j2Impl(name, filter, layout, dsn, debug);
 					instance.start();
 				}
 			}
@@ -65,35 +57,6 @@ public class SentryAppenderLog4j2 implements Appender {
 	public void setName(String name) {
 		if (!Util.isEmpty(name, true))
 			this.name = name.trim();
-	}
-
-	public void setThreshold(Level threshold) {
-		this.threshold = threshold;
-	}
-
-	public void setThreshold(String threshold) {
-		this.threshold = toLevel(threshold);
-		// sentry().setThreshold(toPriority(threshold));
-	}
-
-	public void setResourceTimeout(String timeout) {
-		this.strTimeout = timeout;
-	}
-
-	public void setResourcepath(String path) {
-		this.strPath = path;
-	}
-
-	public void setResourcecharset(String charset) {
-		this.strCharset = charset;
-	}
-
-	public void setResourcemaxfiles(String maxfiles) {
-		this.strMaxfiles = maxfiles;
-	}
-
-	public void setResourcemaxfilesize(String maxFileSize) {
-		this.strMaxfileSize = maxFileSize;
 	}
 
 	@Override

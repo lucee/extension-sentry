@@ -1,8 +1,6 @@
 package org.lucee.extension.sentry.log.log4j;
 
-import java.io.IOException;
 import java.io.Serializable;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -15,7 +13,6 @@ import java.util.Map.Entry;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
@@ -29,10 +26,8 @@ import io.sentry.SentryLevel;
 import io.sentry.SentryOptions;
 import io.sentry.protocol.Message;
 import lucee.Info;
-import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
-import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.PageSource;
 import lucee.runtime.config.Config;
@@ -48,42 +43,19 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 	private static BIF contractPath;
 
 	private Config config;
-	// private String strTimeout;
-	// private Integer timeout;
-	private final Level threshold;
 	private final String dsn;
-	private final String logger;
 	private final boolean debug;
 
-	private Appender localAppender;
 	private IHub hub;
-
-	private Layout<? extends Serializable> layout;
-
-	private String name;
-	private String path;
-	private String charset;
-	private String maxfiles;
-	private String maxfileSize;
-	private String timeout;
 
 	private static final Object token = new Object();
 
 	public SentryAppenderLog4j2Impl(String name, Filter filter, Layout<? extends Serializable> layout, String dsn,
-			Level threshold, String logger, boolean debug, String path, String charset, String maxfiles,
-			String maxfileSize, String timeout) {
+			boolean debug) {
 		super(name, filter, layout, false);
-		this.name = name;
 		this.dsn = dsn;
-		this.threshold = threshold;
-		this.layout = layout;
-		this.logger = logger;
 		this.debug = debug;
-		this.path = path;
-		this.charset = charset;
-		this.maxfiles = maxfiles;
-		this.maxfileSize = maxfileSize;
-		this.timeout = timeout;
+
 		try {
 			config = CFMLEngineFactory.getInstance().getThreadConfig();
 		} catch (Exception e) {
@@ -125,19 +97,10 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 	@Override
 	public void append(LogEvent event) {
 		init();
-		boolean done = false;
 
-		if (hub.isEnabled() && event.getLevel().isMoreSpecificThan(threshold)) {
+		if (hub.isEnabled()) {
 			try {
 				hub.captureEvent(createEvent(event));
-				done = true;
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-		if (!done && false) {
-			try {
-				local().append(event);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -281,111 +244,6 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 			this.config = CFMLEngineFactory.getInstance().getThreadConfig();
 
 		return this.config;
-	}
-
-	/*
-	 * private int getTimeout() { if (timeout != null) return timeout.intValue();
-	 * return timeout =
-	 * CFMLEngineFactory.getInstance().getCastUtil().toInteger(strTimeout, 60); }
-	 */
-
-	private Appender local() throws PageException {
-		if (localAppender == null) {
-			Map<String, String> appenderArgs = new HashMap<>();
-			appenderArgs.put("path", getPath());
-			appenderArgs.put("charset", charset);
-			appenderArgs.put("maxfiles", maxfiles);
-			appenderArgs.put("maxfilesize", maxfileSize);
-			appenderArgs.put("timeout", timeout);
-
-			localAppender = Log4j2Engine.getAppender(config, layout, name, "resource", appenderArgs);
-		}
-		return localAppender;
-	}
-
-	private String getPath() {
-		CFMLEngine engine = CFMLEngineFactory.getInstance();
-
-		// name
-		String name = this.name;
-		if (Util.isEmpty(name)) {
-			name = hashCode() + "";
-		}
-
-		// default path
-		if (Util.isEmpty(this.path))
-			this.path = "logs/" + name + ".log";
-		else
-			this.path = this.path.trim();
-
-		Config config = getConfig(null);
-		Resource path = getFile(engine, config, config.getConfigDir(), this.path);
-		if (path.isDirectory())
-			path = path.getRealResource(name + ".log");
-
-		System.err.println("path:" + path);
-
-		return path.getAbsolutePath();
-	}
-
-	private static Resource getFile(CFMLEngine engine, Config config, Resource directory, String path) {
-		if (Util.isEmpty(path, true))
-			return null;
-
-		path = replacePlaceholder(path, config);
-		Resource file = config.getResource(path);
-		if (isDirectoryP(file)) {
-			if (!file.isFile()) {
-				try {
-					file.createFile(true);
-				} catch (IOException e) {
-				}
-			}
-			return file;
-		}
-
-		file = directory.getRealResource(path);
-		if (isDirectoryP(file) || isDirectoryPP(file)) {
-			try {
-				if (!file.isFile())
-					file.createFile(true);
-				return file;
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		return null;
-	}
-
-	private static boolean isDirectoryP(Resource file) {
-		if (file == null)
-			return false;
-		Resource p = file.getParentResource();
-		return p != null && p.isDirectory();
-	}
-
-	private static boolean isDirectoryPP(Resource file) {
-		if (file == null)
-			return false;
-		Resource p = file.getParentResource();
-
-		if (p == null || !p.isDirectory())
-			return false;
-
-		p = p.getParentResource();
-		return p != null && p.isDirectory();
-	}
-
-	private static String replacePlaceholder(String path, Config config) {
-		try {
-			Class<?> clazz = CFMLEngineFactory.getInstance().getClassUtil()
-					.loadClass("lucee.runtime.config.ConfigWebUtil");
-			Method m = clazz.getMethod("replacePlaceholder", new Class[] { String.class, Config.class });
-			return (String) m.invoke(null, new Object[] { path, config });
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
 	}
 
 	private static String contractPath(PageContext pc, String abs) throws PageException {
