@@ -26,8 +26,10 @@ import io.sentry.SentryLevel;
 import io.sentry.SentryOptions;
 import io.sentry.protocol.Message;
 import lucee.Info;
+import lucee.commons.io.log.Log;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
+import lucee.loader.util.Util;
 import lucee.runtime.PageContext;
 import lucee.runtime.PageSource;
 import lucee.runtime.config.Config;
@@ -48,12 +50,15 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 
 	private IHub hub;
 
+	private String name;
+
 	private static final Object token = new Object();
 
 	public SentryAppenderLog4j2Impl(String name, Filter filter, Layout<? extends Serializable> layout, String dsn,
 			boolean debug) {
 		super(name, filter, layout, false);
 		this.dsn = dsn;
+		this.name = name;
 		this.debug = debug;
 
 		try {
@@ -96,15 +101,37 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 
 	@Override
 	public void append(LogEvent event) {
-		init();
+		if (!Util.isEmpty(dsn)) {
+			init();
 
-		if (hub.isEnabled()) {
-			try {
-				hub.captureEvent(createEvent(event));
-			} catch (Exception e) {
-				e.printStackTrace();
+			if (hub.isEnabled()) {
+				try {
+					hub.captureEvent(createEvent(event));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
+		} else {
+			Throwable t = event.getThrown();
+			CFMLEngineFactory.getInstance().getThreadConfig().getLog("application").log(toLevel(event.getLevel()), name,
+					event.getMessage().toString(), t);
 		}
+	}
+
+	private static int toLevel(Level level) {
+		if (level.equals(Level.DEBUG))
+			return Log.LEVEL_DEBUG;
+		if (level.equals(Level.ERROR))
+			return Log.LEVEL_ERROR;
+		if (level.equals(Level.FATAL))
+			return Log.LEVEL_FATAL;
+		if (level.equals(Level.INFO))
+			return Log.LEVEL_INFO;
+		if (level.equals(Level.TRACE))
+			return Log.LEVEL_TRACE;
+		if (level.equals(Level.WARN))
+			return Log.LEVEL_WARN;
+		return 0;
 	}
 
 	protected SentryEvent createEvent(final LogEvent loggingEvent) {

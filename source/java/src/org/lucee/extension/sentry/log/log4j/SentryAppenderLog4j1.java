@@ -19,6 +19,7 @@ import io.sentry.SentryEvent;
 import io.sentry.SentryLevel;
 import io.sentry.SentryOptions;
 import io.sentry.protocol.Message;
+import lucee.commons.io.log.Log;
 import lucee.commons.io.res.Resource;
 import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
@@ -301,13 +302,39 @@ public class SentryAppenderLog4j1 implements Appender {
 
 	@Override
 	public void doAppend(LoggingEvent event) {
-		init();
-		if (hub.isEnabled()) {
-			try {
-				hub.captureEvent(createEvent(event));
-			} catch (Exception e) {
+		if (!Util.isEmpty(dsn)) {
+			init();
+			if (hub.isEnabled()) {
+				try {
+					hub.captureEvent(createEvent(event));
+
+				} catch (Exception e) {
+				}
 			}
+		} else {
+			Throwable t = null;
+			ThrowableInformation ti = event.getThrowableInformation();
+			if (ti != null)
+				t = ti.getThrowable();
+			CFMLEngineFactory.getInstance().getThreadConfig().getLog("application").log(toLevel(event.getLevel()), name,
+					event.getMessage().toString(), t);
 		}
+	}
+
+	private static int toLevel(Level level) {
+		if (level.equals(Level.DEBUG))
+			return Log.LEVEL_DEBUG;
+		if (level.equals(Level.ERROR))
+			return Log.LEVEL_ERROR;
+		if (level.equals(Level.FATAL))
+			return Log.LEVEL_FATAL;
+		if (level.equals(Level.INFO))
+			return Log.LEVEL_INFO;
+		if (level.equals(Level.TRACE))
+			return Log.LEVEL_TRACE;
+		if (level.equals(Level.WARN))
+			return Log.LEVEL_WARN;
+		return 0;
 	}
 
 	@Override
