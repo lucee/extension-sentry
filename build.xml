@@ -115,15 +115,25 @@ release-type: server
       </fileset>
     </copy> -->
 
-    <!-- copy the driver -->
-    <loadfile property="c1" srcFile="${srcCFML}/context/admin/logging/appender/SentryAppender.cfc" />
-    <replace haystack="${c1}" needle="{class}" repl="${class}" property="c2"/>
-    <replace haystack="${c2}" needle="{label}" repl="${label}" property="c3"/>
-    <replace haystack="${c3}" needle="{desc}" repl="${description}" property="c4"/>
+    <!-- copy the driver for Log4j1 -->
+    <loadfile property="c1" srcFile="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j1.cfc" />
+    <replace haystack="${c1}" needle="{class}" repl="${classlog4j1}" property="c2"/>
+    <replace haystack="${c2}" needle="{label}" repl="${labellog4j1}" property="c3"/>
+    <replace haystack="${c3}" needle="{desc}" repl="${desclog4j1}" property="c4"/>
     <replace haystack="${c4}" needle="{bundlename}" repl="${bundlename}" property="c5"/>
     <replace haystack="${c5}" needle="{bundleversion}" repl="${bundleversion}${build.number}${bundleversionappendix}" property="c6"/>
-    <echo message="${c6}" file="${dist}/extension/context/admin/logging/appender/SentryAppender.cfc"/>
+    <echo message="${c6}" file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc"/>
     
+    <!-- copy the driver for Log4j1 -->
+    <loadfile property="xc1" srcFile="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j2.cfc" />
+    <replace haystack="${xc1}" needle="{class}" repl="${classlog4j2}" property="xc2"/>
+    <replace haystack="${xc2}" needle="{label}" repl="${labellog4j2}" property="xc3"/>
+    <replace haystack="${xc3}" needle="{desc}" repl="${desclog4j2}" property="xc4"/>
+    <replace haystack="${xc4}" needle="{bundlename}" repl="${bundlename}" property="xc5"/>
+    <replace haystack="${xc5}" needle="{bundleversion}" repl="${bundleversion}${build.number}${bundleversionappendix}" property="xc6"/>
+    <echo message="${xc6}" file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc"/>
+    
+
     <!-- copy the jars necessary -->
     <copy todir="${dist}/extension/jars">
       <fileset dir="${lib}">
