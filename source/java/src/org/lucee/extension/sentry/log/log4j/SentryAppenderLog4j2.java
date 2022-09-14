@@ -1,6 +1,7 @@
 package org.lucee.extension.sentry.log.log4j;
 
 import java.io.Serializable;
+import java.util.Map;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.Appender;
@@ -8,6 +9,7 @@ import org.apache.logging.log4j.core.ErrorHandler;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
+import org.lucee.extension.sentry.log.util.CommonUtil;
 
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
@@ -19,7 +21,11 @@ public class SentryAppenderLog4j2 implements Appender {
 	private String name;
 	private String dsn;
 	private SentryAppenderLog4j2Impl instance;
-	private boolean debug = true;
+	private boolean debug = false;
+	private String environment;
+	private String dist;
+	private Map<String, String> extras;
+	private Map<String, String> tags;
 	private static final Object token = new Object();
 
 	public SentryAppenderLog4j2() {
@@ -30,7 +36,8 @@ public class SentryAppenderLog4j2 implements Appender {
 		if (instance == null) {
 			synchronized (token) {
 				if (instance == null) {
-					instance = new SentryAppenderLog4j2Impl(name, filter, layout, dsn, debug);
+					instance = new SentryAppenderLog4j2Impl(name, filter, layout, dsn, debug, dist, environment, extras,
+							tags);
 					instance.start();
 				}
 			}
@@ -42,8 +49,34 @@ public class SentryAppenderLog4j2 implements Appender {
 		this.dsn = dsn;
 	}
 
+	public void setEnvironment(String environment) {
+		if (!Util.isEmpty(environment, true))
+			this.environment = environment.trim();
+	}
+
+	public void setDist(String dist) {
+		if (!Util.isEmpty(dist, true))
+			this.dist = dist.trim();
+	}
+
+	public void setExtras(String extras) {
+		if (Util.isEmpty(dist, true))
+			return;
+		this.extras = CommonUtil.toMap(extras);
+	}
+
+	public void setTags(String tags) {
+		if (Util.isEmpty(dist, true))
+			return;
+		this.tags = CommonUtil.toMap(tags);
+	}
+
 	public void setDebug(String debug) {
-		this.debug = CFMLEngineFactory.getInstance().getCastUtil().toBooleanValue(debug, true);
+		if (Util.isEmpty(debug)) {
+			this.debug = false;
+		} else {
+			this.debug = CFMLEngineFactory.getInstance().getCastUtil().toBooleanValue(debug, true);
+		}
 	}
 
 	public void setLayout(Layout layout) {

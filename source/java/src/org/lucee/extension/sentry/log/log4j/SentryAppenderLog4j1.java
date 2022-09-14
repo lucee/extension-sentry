@@ -3,6 +3,7 @@ package org.lucee.extension.sentry.log.log4j;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.log4j.Appender;
 import org.apache.log4j.Layout;
@@ -12,6 +13,7 @@ import org.apache.log4j.spi.ErrorHandler;
 import org.apache.log4j.spi.Filter;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.log4j.spi.ThrowableInformation;
+import org.lucee.extension.sentry.log.util.CommonUtil;
 
 import io.sentry.DateUtils;
 import io.sentry.Hub;
@@ -45,8 +47,12 @@ public class SentryAppenderLog4j1 implements Appender {
 	private String dsn;
 	private boolean isInit;
 	private Hub hub;
-	private boolean debug = true;
+	private boolean debug = false;
 	private String logger;
+	private String environment;
+	private String dist;
+	private Map<String, String> extras;
+	private Map<String, String> tags;
 
 	public SentryAppenderLog4j1() {
 		this(null);
@@ -80,8 +86,31 @@ public class SentryAppenderLog4j1 implements Appender {
 	}
 
 	public void setDsn(String dsn) {
+		System.err.println("setDsn:string:" + dsn);
 		if (!Util.isEmpty(dsn))
 			this.dsn = dsn;
+	}
+
+	public void setEnvironment(String environment) {
+		if (!Util.isEmpty(environment, true))
+			this.environment = environment.trim();
+	}
+
+	public void setDist(String dist) {
+		if (!Util.isEmpty(dist, true))
+			this.dist = dist.trim();
+	}
+
+	public void setExtras(String extras) {
+		if (Util.isEmpty(dist, true))
+			return;
+		this.extras = CommonUtil.toMap(extras);
+	}
+
+	public void setTags(String tags) {
+		if (Util.isEmpty(dist, true))
+			return;
+		this.tags = CommonUtil.toMap(tags);
 	}
 
 	protected SentryEvent createEvent(final LoggingEvent loggingEvent) {
@@ -113,6 +142,8 @@ public class SentryAppenderLog4j1 implements Appender {
 			if (caller != null)
 				event.setExtra("caller", caller);
 		}
+
+		CommonUtil.setCustom(event, dist, environment, tags, extras);
 
 		return event;
 	}

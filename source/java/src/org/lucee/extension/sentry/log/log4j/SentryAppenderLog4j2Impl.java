@@ -17,6 +17,7 @@ import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.lucee.extension.sentry.log.util.CommonUtil;
 
 import io.sentry.DateUtils;
 import io.sentry.IHub;
@@ -52,14 +53,26 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 
 	private String name;
 
+	private String dist;
+
+	private String environment;
+
+	private Map<String, String> extras;
+
+	private Map<String, String> tags;
+
 	private static final Object token = new Object();
 
 	public SentryAppenderLog4j2Impl(String name, Filter filter, Layout<? extends Serializable> layout, String dsn,
-			boolean debug) {
+			boolean debug, String dist, String environment, Map<String, String> extras, Map<String, String> tags) {
 		super(name, filter, layout, false);
 		this.dsn = dsn;
 		this.name = name;
 		this.debug = debug;
+		this.dist = dist;
+		this.environment = environment;
+		this.extras = extras != null && extras.isEmpty() ? null : extras;
+		this.tags = tags != null && tags.isEmpty() ? null : tags;
 
 		try {
 			config = CFMLEngineFactory.getInstance().getThreadConfig();
@@ -195,6 +208,8 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 		if (!trg.isEmpty()) {
 			event.getContexts().put("Context Data", trg);
 		}
+
+		CommonUtil.setCustom(event, dist, environment, tags, extras);
 
 		return event;
 	}

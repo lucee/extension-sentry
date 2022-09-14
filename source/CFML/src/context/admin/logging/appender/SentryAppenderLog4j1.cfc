@@ -4,6 +4,40 @@ component extends="Appender" {
 
 		field("DSN","dsn","",false,"Sentry Data Source Name (DSN). This setting is optional and can also be set in the enviroment instead (https://docs.sentry.io/clients/java/config/##configuration-methods).","text")
 		
+
+		,field(
+			"Environment","environment",
+			"",
+			false,
+			"Refers to your code deployment naming convention. For example, development, testing, staging and so on.",
+			"text")
+
+		,field(
+			"Dist","dist",
+			"",
+			false,
+			"Distinguishes build or deployment variants of the same release of an application. For example, the dist can be the build number of an XCode build or the version code of an Android build.",
+			"text")
+		,field(
+			"Tags","tags",
+			"",
+			false,
+			"Tags are various key/value pairs that get assigned to an event, and you can use them later as a breakdown or quick access to finding related events. 
+			<br><br>Please separate the pairs with a comma and use ""|"" as separator between key and value like this:<br> myKey1|my value 1,myKey2|my value 2",
+			"textarea")		
+			,field(
+				"Extras","extras",
+				"",
+				false,
+				"These fields are unsearchable, they enrich your events with information that will help you debug and resolve the associated issues.
+				<br><br>Please separate the pairs with a comma and use ""|"" as separator between key and value like this:<br> myKey1|my value 1,myKey2|my value 2",
+				"textarea")
+			,field(
+				"Debug","debug",
+				"true",
+				false,
+				"Enable debugging, if enabled it will show debug information in the console",
+				"checkbox")
 	];
 	
 	public array function getCustomFields() {
