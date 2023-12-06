@@ -1,6 +1,7 @@
 package org.lucee.extension.sentry.log.log4j;
 
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -43,12 +44,14 @@ import lucee.runtime.util.Cast;
 
 public class SentryAppenderLog4j2Impl extends AbstractAppender {
 
+	private static final Class[] EMPTY_CLASS = new Class[0];
+	private static final Object[] EMPTY_OBJ = new Object[0];
 	private static BIF contractPath;
+	private static Method getRequestId;
 
 	private Config config;
 	private final String dsn;
 	private final boolean debug;
-
 	private IHub hub;
 
 	private String name;
@@ -169,18 +172,44 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 			if (ps != null)
 				event.setExtra("Base Template", ps.getDisplayPath());
 
-			if (pc.getRequest() instanceof HttpServletRequest)
-				event.setExtra("Request URL", SentryUtil.getRequestURL((HttpServletRequest) pc.getRequest(), true));
+			if (pc.getRequest() instanceof HttpServletRequest) {
 
+				HttpServletRequest req = (HttpServletRequest) pc.getRequest();
+				String url = SentryUtil.getRequestURL(req, true);
+				event.setExtra("Request URL", url);
+				event.setTag("url", url);
+				event.setTag("server_name", req.getServerName());
+
+			}
 			String caller = getCaller(pc);
 			if (caller != null)
 				event.setExtra("Caller", caller);
 
+			event.setTag("request_id", getRequestId(pc) + "");
+			event.setTag("id", pc.getId() + "");
+
 		}
 
 		Info info = CFMLEngineFactory.getInstance().getInfo();
+
+		// tags
+		event.setTag("lucee_version", info.getVersion().toString());
+		event.setTag("java_version", System.getProperty("java.version"));
+		event.setTag("machine_name", System.getenv("MACHINE_NAME"));
+		event.setTag("machine_name", System.getenv("MACHINE_PURPOSE"));
+
+		setDD(event, "APP", "application");
+		setDD(event, "ENV", "environment");
+		setDD(event, "PURPOSE", "purpose");
+		setDD(event, "SERVICE", "service");
+		setDD(event, "TAGS", "tags");
+		setDD(event, "VERSION", "version");
+		setDD(event, "TAGS", "tags");
+
 		event.setExtra("Lucee Core", info.getVersion().toString());
 		event.setExtra("Lucee Loader", lucee.loader.Version.VERSION);
+
+		// branch,commit,release,dev_user,
 
 		Throwable t = loggingEvent.getThrown();
 		if (t != null) {
@@ -212,6 +241,32 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 		CommonUtil.setCustom(event, dist, environment, tags, extras);
 
 		return event;
+	}
+
+	private void setDD(SentryEvent event, String envName, String tagName) {
+		String tmp = System.getenv(envName);
+		if (Util.isEmpty(tmp, true)) {
+			tmp = System.getenv("DD_" + envName);
+		}
+		if (!Util.isEmpty(tmp, true)) {
+			event.setTag(tagName, tmp);
+		}
+	}
+
+	public static String getRequestId(PageContext pc) {
+		try {
+			if (getRequestId == null || getRequestId.getDeclaringClass() != pc.getClass())
+				getRequestId = pc.getClass().getMethod("getRequestId", EMPTY_CLASS);
+			return CFMLEngineFactory.getInstance().getCastUtil().toString(getRequestId.invoke(pc, EMPTY_OBJ));
+		} catch (Exception e) {
+			if (pc != null) {
+				Log log = pc.getConfig().getLog("application");
+				if (log != null)
+					log.error("sentry appener", e);
+			}
+
+			return null;
+		}
 	}
 
 	private List<String> toParams(final Object[] arguments) {
