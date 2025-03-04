@@ -1,23 +1,42 @@
 package org.lucee.extension.sentry.log.log4j;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.apache.logging.log4j.Level;
 
 import lucee.commons.io.log.Log;
+import lucee.loader.engine.CFMLEngine;
 import lucee.loader.engine.CFMLEngineFactory;
 import lucee.loader.util.Util;
+import lucee.runtime.PageContext;
 import lucee.runtime.config.Config;
+import lucee.runtime.exp.PageException;
+import lucee.runtime.util.Cast;
+import lucee.runtime.util.ClassUtil;
+import lucee.runtime.util.Creation;
 
 public class SentryUtil {
-	public static String getRequestURL(HttpServletRequest req, boolean includeQueryString) {
 
-		StringBuffer sb = req.getRequestURL();
+	public static String getServerName(PageContext pc) throws PageException {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		ClassUtil classUtil = eng.getClassUtil();
+		Creation creator = eng.getCreationUtil();
+		Cast caster = eng.getCastUtil();
+
+		Object req = classUtil.callMethod(pc, creator.createKey("getHttpServletRequest"), new Object[0]);
+		return caster.toString(classUtil.callMethod(req, creator.createKey("getServerName"), new Object[0]));
+	}
+
+	public static String getRequestURL(PageContext pc, boolean includeQueryString) throws PageException {
+		CFMLEngine eng = CFMLEngineFactory.getInstance();
+		ClassUtil classUtil = eng.getClassUtil();
+		Creation creator = eng.getCreationUtil();
+		Cast caster = eng.getCastUtil();
+
+		Object req = classUtil.callMethod(pc, creator.createKey("getHttpServletRequest"), new Object[0]);
+		StringBuffer sb = (StringBuffer) classUtil.callMethod(req, creator.createKey("getRequestURL"), new Object[0]);
 		int maxpos = sb.indexOf("/", 8);
 
 		if (maxpos > -1) {
-
-			if (req.isSecure()) {
+			if (caster.toBooleanValue(classUtil.callMethod(req, creator.createKey("isSecure"), new Object[0]))) {
 				if (sb.substring(maxpos - 4, maxpos).equals(":443"))
 					sb.delete(maxpos - 4, maxpos);
 			} else {
@@ -25,8 +44,9 @@ public class SentryUtil {
 					sb.delete(maxpos - 3, maxpos);
 			}
 
-			if (includeQueryString && !Util.isEmpty(req.getQueryString()))
-				sb.append('?').append(req.getQueryString());
+			String qs = caster.toString(classUtil.callMethod(req, creator.createKey("getQueryString"), new Object[0]));
+			if (includeQueryString && !Util.isEmpty(qs))
+				sb.append('?').append(qs);
 		}
 
 		return sb.toString();
@@ -87,4 +107,5 @@ public class SentryUtil {
 		}
 		return data;
 	}
+
 }

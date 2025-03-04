@@ -11,8 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
@@ -150,7 +148,7 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 		return 0;
 	}
 
-	protected SentryEvent createEvent(final LogEvent loggingEvent) {
+	protected SentryEvent createEvent(final LogEvent loggingEvent) throws PageException {
 		final SentryEvent event = new SentryEvent(DateUtils.getDateTime(loggingEvent.getTimeMillis()));
 		final Message message = new Message();
 
@@ -172,13 +170,12 @@ public class SentryAppenderLog4j2Impl extends AbstractAppender {
 			if (ps != null)
 				event.setExtra("Base Template", ps.getDisplayPath());
 
-			if (pc.getRequest() instanceof HttpServletRequest) {
+			String url = SentryUtil.getRequestURL(pc, true);
+			if (url != null) {
 
-				HttpServletRequest req = (HttpServletRequest) pc.getRequest();
-				String url = SentryUtil.getRequestURL(req, true);
 				event.setExtra("Request URL", url);
 				event.setTag("url", url);
-				event.setTag("server_name", req.getServerName());
+				event.setTag("server_name", SentryUtil.getServerName(pc));
 
 			}
 			String caller = getCaller(pc);
