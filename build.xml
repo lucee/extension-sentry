@@ -5,36 +5,13 @@
     </description>
     <!-- set global properties for this build -->
   
-  <property file="build.properties"/>
-
   <property name="lib" location="source/java/libs"/>
   <property name="src" location="source/java/src"/>
   <property name="srcCFML" location="source/CFML/src"/>
   <property name="srcImg" location="source/images"/>
   <property name="temp" location="temp"/>
   <property name="build" location="build"/>
-  <property name="dist"  location="dist"/>
-
-
-  
-  <buildnumber file="build.number"/>
-
-  <scriptdef name="replace" language="javascript">
-     <attribute name="haystack" />
-     <attribute name="needle" />
-     <attribute name="repl" />
-     <attribute name="property" />
-     <![CDATA[
-      var text = attributes.get("haystack");
-      var needle = attributes.get("needle");
-      var repl = attributes.get("repl");
-      text=text.trim();
-
-      var regex = new RegExp(needle,'g');
-      text=text.replace(regex,repl);
-      project.setProperty(attributes.get("property"), text);
-     ]]>
-  </scriptdef>
+  <property name="dist"  location="target"/>
 
   <path id="classpath">
     <fileset dir="${lib}">
@@ -73,11 +50,11 @@
 
     <echo file="${dist}/extension/META-INF/MANIFEST.MF">Manifest-Version: 1.0
 Built-Date: ${NOW}
-version: "${bundleversion}${build.number}${bundleversionappendix}"
+version: "${bundleversion}"
 id: "${id}"
 name: "${label}"
 description: "${description}"
-lucee-core-version: "5.0.0.230"
+lucee-core-version: "${luceeCoreVersion}"
 start-bundles: false
 release-type: server
 </echo>
@@ -88,7 +65,7 @@ release-type: server
   <target name="compile" depends="copy"
         description="compile the source " >
     <!-- Compile ACF-Infinspan source -->
-    <javac srcdir="${temp}" target="1.7" destdir="${build}" debug="true" debuglevel="lines,vars,source">
+    <javac srcdir="${temp}" source="11" target="11" destdir="${build}" debug="true" debuglevel="lines,vars,source">
       <classpath refid="classpath" />
     </javac>
   </target>
@@ -99,40 +76,55 @@ release-type: server
  
     <!-- Put everything in ${build} into .jar file -->
     <jar 
-    	jarfile="${dist}/extension/jars/${filename}-${bundleversion}${build.number}${bundleversionappendix}.jar" basedir="${build}"  manifest="${src}/META-INF/MANIFEST.MF">
+    	jarfile="${dist}/extension/jars/${bundlename}-${bundleversion}.jar" basedir="${build}"  manifest="${src}/META-INF/MANIFEST.MF">
       <manifest>
-        <attribute name="Bundle-Version" value="${bundleversion}${build.number}${bundleversionappendix}"/>
+        <attribute name="Bundle-Version" value="${bundleversion}"/>
         <attribute name="Built-Date" value="${NOW}"/>
         <attribute name="Bundle-SymbolicName" value="${bundlename}"/>
 
       </manifest>
     </jar>
 
-    <!-- copy the context necessary
-    <copy todir="${dist}/extension/context">
-      <fileset dir="${srcCFML}/context">
-        <include name="**/*.*"/>
-      </fileset>
-    </copy> -->
+    <!-- SentryAppenderLog4j1 -->
+    <copy 
+      file="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
+      tofile="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" />
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
+      match="\{class\}" replace="${classlog4j1}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
+      match="\{label\}" replace="${labellog4j1}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
+      match="\{desc\}" replace="${desclog4j1}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
+      match="\{bundlename\}" replace="${bundlename}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
+      match="\{bundleversion\}" replace="${bundleversion}" byline="true"/>
 
-    <!-- copy the driver for Log4j1 -->
-    <loadfile property="c1" srcFile="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j1.cfc" />
-    <replace haystack="${c1}" needle="{class}" repl="${classlog4j1}" property="c2"/>
-    <replace haystack="${c2}" needle="{label}" repl="${labellog4j1}" property="c3"/>
-    <replace haystack="${c3}" needle="{desc}" repl="${desclog4j1}" property="c4"/>
-    <replace haystack="${c4}" needle="{bundlename}" repl="${bundlename}" property="c5"/>
-    <replace haystack="${c5}" needle="{bundleversion}" repl="${bundleversion}${build.number}${bundleversionappendix}" property="c6"/>
-    <echo message="${c6}" file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc"/>
-    
-    <!-- copy the driver for Log4j1 -->
-    <loadfile property="xc1" srcFile="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j2.cfc" />
-    <replace haystack="${xc1}" needle="{class}" repl="${classlog4j2}" property="xc2"/>
-    <replace haystack="${xc2}" needle="{label}" repl="${labellog4j2}" property="xc3"/>
-    <replace haystack="${xc3}" needle="{desc}" repl="${desclog4j2}" property="xc4"/>
-    <replace haystack="${xc4}" needle="{bundlename}" repl="${bundlename}" property="xc5"/>
-    <replace haystack="${xc5}" needle="{bundleversion}" repl="${bundleversion}${build.number}${bundleversionappendix}" property="xc6"/>
-    <echo message="${xc6}" file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc"/>
-    
+    <!-- SentryAppenderLog4j2 -->
+    <copy 
+      file="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
+      tofile="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" />
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
+      match="\{class\}" replace="${classlog4j1}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
+      match="\{label\}" replace="${labellog4j1}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
+      match="\{desc\}" replace="${desclog4j1}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
+      match="\{bundlename\}" replace="${bundlename}" byline="true"/>
+    <replaceregexp 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
+      match="\{bundleversion\}" replace="${bundleversion}" byline="true"/>
+
 
     <!-- copy the jars necessary -->
     <copy todir="${dist}/extension/jars">
@@ -158,7 +150,7 @@ release-type: server
 
 
     <!-- Zip everything  -->
-     <zip destfile="${dist}/${filename}-${bundleversion}${build.number}${bundleversionappendix}.lex">
+     <zip destfile="${dist}/${filename}-${bundleversion}.lex">
         <zipfileset dir="${dist}/extension"/>
     </zip>
 		
