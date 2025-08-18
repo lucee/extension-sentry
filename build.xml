@@ -85,44 +85,24 @@ release-type: server
       </manifest>
     </jar>
 
-    <!-- SentryAppenderLog4j1 -->
+    <!-- SentryAppenderLog4j -->
     <copy 
-      file="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
-      tofile="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" />
+      file="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j.cfc" 
+      tofile="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j.cfc" />
     <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
-      match="\{class\}" replace="${classlog4j1}" byline="true"/>
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j.cfc" 
+      match="\{class\}" replace="${classlog4j}" byline="true"/>
     <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
-      match="\{label\}" replace="${labellog4j1}" byline="true"/>
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j.cfc" 
+      match="\{label\}" replace="${labellog4j}" byline="true"/>
     <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
-      match="\{desc\}" replace="${desclog4j1}" byline="true"/>
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j.cfc" 
+      match="\{desc\}" replace="${desclog4j}" byline="true"/>
     <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j.cfc" 
       match="\{bundlename\}" replace="${bundlename}" byline="true"/>
     <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j1.cfc" 
-      match="\{bundleversion\}" replace="${bundleversion}" byline="true"/>
-
-    <!-- SentryAppenderLog4j2 -->
-    <copy 
-      file="${srcCFML}/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
-      tofile="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" />
-    <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
-      match="\{class\}" replace="${classlog4j1}" byline="true"/>
-    <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
-      match="\{label\}" replace="${labellog4j1}" byline="true"/>
-    <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
-      match="\{desc\}" replace="${desclog4j1}" byline="true"/>
-    <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
-      match="\{bundlename\}" replace="${bundlename}" byline="true"/>
-    <replaceregexp 
-      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j2.cfc" 
+      file="${dist}/extension/context/admin/logging/appender/SentryAppenderLog4j.cfc" 
       match="\{bundleversion\}" replace="${bundleversion}" byline="true"/>
 
 

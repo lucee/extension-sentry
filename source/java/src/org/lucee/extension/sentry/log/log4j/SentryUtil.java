@@ -80,22 +80,6 @@ public class SentryUtil {
 		return dv;
 	}
 
-	public static int toLevel(org.apache.log4j.Level l, int dv) {
-		if (org.apache.log4j.Level.DEBUG.equals(l))
-			return Log.LEVEL_DEBUG;
-		if (org.apache.log4j.Level.ERROR.equals(l))
-			return Log.LEVEL_ERROR;
-		if (org.apache.log4j.Level.INFO.equals(l))
-			return Log.LEVEL_INFO;
-		if (org.apache.log4j.Level.FATAL.equals(l))
-			return Log.LEVEL_FATAL;
-		if (org.apache.log4j.Level.TRACE.equals(l))
-			return Log.LEVEL_TRACE;
-		if (org.apache.log4j.Level.WARN.equals(l))
-			return Log.LEVEL_WARN;
-		return dv;
-	}
-
 	public static String[] appAndMsg(String raw) {
 		String[] data = new String[] { "", "" };
 		int index = raw.indexOf("->");

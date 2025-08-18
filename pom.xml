@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.lucee</groupId>
     <artifactId>sentry-extension</artifactId>
-    <version>5.5.2.16</version>
+    <version>5.6.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Sentry Extension</name>
 
@@ -14,13 +14,10 @@
         <maven.compiler.target>11</maven.compiler.target>
         <id>83062C18-FA1F-4647-815BB663BCF98AC0</id>
         <bundlename>org.lucee.sentry.extension</bundlename>
-        <classlog4j1>org.lucee.extension.sentry.log.log4j.SentryAppenderLog4j1</classlog4j1>
-        <classlog4j2>org.lucee.extension.sentry.log.log4j.SentryAppenderLog4j2</classlog4j2>
-        <labellog4j1>Sentry / Resource for Log4j1</labellog4j1>
-        <labellog4j2>Sentry / Resource for Log4j2</labellog4j2>
-        <desclog4j1>A Log4j1 Appender that send the data to Sentry (Error Tracking Service) or a File (Resource) depending on a Log level. This needs to be used in combination with Lucee 5.3.8 or below.</desclog4j1>
-        <desclog4j2>A Log4j2 Appender that send the data to Sentry (Error Tracking Service) or a File (Resource) depending on a Log level. This needs to be used in combination with Lucee 5.3.9 or above.</desclog4j2>
-        <luceeCoreVersion>5.0.0.230</luceeCoreVersion>
+        <classlog4j>org.lucee.extension.sentry.log.log4j.SentryAppenderLog4j2</classlog4j>
+        <labellog4j>Sentry / Resource for Log4j2</labellog4j>
+        <desclog4j>A Log4j2 Appender that send the data to Sentry (Error Tracking Service) or a File (Resource) depending on a Log level.</desclog4j>
+        <luceeCoreVersion>5.3.9.0</luceeCoreVersion>
         <releaseType>server</releaseType>
         <label>Sentry Appender Extension</label>
         <release.url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</release.url>
@@ -135,12 +132,9 @@
                                     <property name="srcversion" value="${maven.compiler.source}"/>
                                     <property name="trgversion" value="${maven.compiler.target}"/>
 
-                                    <property name="classlog4j1" value="${classlog4j1}"/>
-                                    <property name="classlog4j2" value="${classlog4j2}"/>
-                                    <property name="labellog4j1" value="${labellog4j1}"/>
-                                    <property name="labellog4j2" value="${labellog4j2}"/>
-                                    <property name="desclog4j1" value="${desclog4j1}"/>
-                                    <property name="desclog4j2" value="${desclog4j2}"/>
+                                    <property name="classlog4j" value="${classlog4j}"/>
+                                    <property name="labellog4j" value="${labellog4j}"/>
+                                    <property name="desclog4j" value="${desclog4j}"/>
                                 </ant>
                                 <condition property="isSnapshot" value="true" else="false">
                                     <matches string="${project.version}" pattern=".*-SNAPSHOT"/>
